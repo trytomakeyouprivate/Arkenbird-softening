@@ -1,0 +1,151 @@
+#!/bin/bash
+
+cat <<EOF
+
+------- Thunderbird hardening override settings -------
+
+# The Thunderbird hardening script is way overkill, this set of changes should make it work normally
+
+# These overrides keep the Chat functionality disabled,
+# if you use that, comment out lines 1530-1553 in the user.js
+
+EOF
+
+# Set the name of your Thunderbird profile folder here:
+Profilename="t80k3jk0.Neues Profil"
+
+[ ! -f ~/.config/autostart/thunderbird-hardening-overwrite-launch ] && cat > ~/.config/autostart/thunderbird-hardening-overwrite-launch <<EOF && echo "created autostart script"
+#!/bin/bash
+
+sleep 120
+. $PWD/thunderbird-hardening-overwrite || notify-send -a "Thunderbird overwrite" "Error" "Updating the Thunderbird hardening failed, please contact github.com/trytomakeyouprivate to see whats wrong."
+EOF
+
+[ ! -f ~/.config/autostart/thunderbird-hardening-overwrite-launch.desktop ] && cat > ~/.config/autostart/thunderbird-hardening-overwrite-launch.desktop <<EOF && echo "created autostart script desktop entry for KDE"
+[Desktop Entry]
+Exec=~/.config/autostart/thunderbird-hardening-overwrite-launch
+Icon=dialog-scripts
+Name=Thunderbird Hardening Overwrite
+Path=
+Type=Application
+X-KDE-AutostartScript=true
+EOF
+
+chmod +x ~/.config/autostart/thunderbird-hardening-overwrite-launch* && echo "made both executable"
+
+# Get mailprovider configurations locally
+# This is preferred over fetching them (you know, Thunderbird is actually a good program)
+# but by default there is no file for that
+
+echo "Downloading autoconfig file to avoid sending data"
+wget https://privacy-handbuch.de/download/mailprovider-db.tar.bz2
+tar -xvf mailprovider-db.tar.bz2 -C isp #unclear where this "isp" directory belongs
+
+cd $Profilename || echo "Set your profile name to proceed." && exit
+
+echo "Updating the user.js..." &&\
+wget -N https://raw.githubusercontent.com/HorlogeSkynet/thunderbird-user.js/master/user.js -O user.js &&\
+echo "done." || echo "Downloading the script failed. Either its not been updated, or some other error" && exit
+
+##### Replace boolean
+# This searches for a unique part of the setting and replaces the boolean value.
+# I found no better way to do this, while not relying on exact line numbers, which may change
+# the core command is: sed -i 's/FIND/REPLACE/g' user.js
+
+echo "Replacing boolean values (true/false) and settings..."
+
+# UserChrome
+sed -i 's/legacyUserProfileCustomizations.stylesheets", false/legacyUserProfileCustomizations.stylesheets", true/g' user.js
+
+sed -i 's/sanitize_date_header", true/sanitize_date_header", false/g' user.js
+sed -i 's/browser.region.update.enabled", false/browser.region.update.enabled", true/g' user.js
+sed -i 's/geo.provider.ms-windows-location", false/geo.provider.ms-windows-location", true/g' user.js # Windows
+sed -i 's/geo.provider.use_corelocation", false/geo.provider.use_corelocation", true/g' user.js # Mac
+sed -i 's/geo.provider.use_gpsd", false/geo.provider.use_gpsd", true/g' user.js # Linux
+sed -i 's/mailnews.start_page.enabled", false/mailnews.start_page.enabled", true/g' user.js
+sed -i 's/javascript.use_us_english_locale", true/javascript.use_us_english_locale", false/g' user.js #Hidden pref
+sed -i 's/network.proxy.socks_remote_dns", true/network.proxy.socks_remote_dns", false/g' user.js
+sed -i 's/privacy.userContext.enabled", true/privacy.userContext.enabled", false/g' user.js #this makes no sense, deactivated but to be sure
+sed -i 's/privacy.userContext.ui.enabled", true/privacy.userContext.ui.enabled", false/g' user.js
+sed -i 's/accessibility.force_disabled", 1/accessibility.force_disabled", 0/g' user.js #maybe on Windows and MacOS when you are not disabled
+sed -i 's/pdfjs.disabled", false/pdfjs.disabled", true/g' user.js
+sed -i 's/browser.download.manager.addToRecentDocs", false/browser.download.manager.addToRecentDocs", true/g' user.js
+sed -i 's/sanitizeOnShutdown", true/sanitizeOnShutdown", false/g' user.js
+sed -i 's/block_mozAddonManager", true/block_mozAddonManager", false/g' user.js #why?
+sed -i 's/letterboxing", true/letterboxing", false/g' user.js
+sed -i 's/resume_from_crash", false/resume_from_crash", true/g' user.js
+sed -i 's/svg.disabled", true/svg.disabled", false/g' user.js #sanitized HTML should deal with that
+sed -i 's/font_rendering.graphite.enabled", false/font_rendering.graphite.enabled", true/g' user.js
+sed -i 's/geo.enabled", false/geo.enabled", true/g' user.js
+
+### Mail autoconfig
+# https://privacy-handbuch.de/handbuch_31m.htm
+sed -i 's/mailnews.auto_config.guess.enabled", false/mailnews.auto_config.guess.enabled", true/g' user.js
+sed -i 's/auto_config.fetchFromExchange.enabled", false/auto_config.fetchFromExchange.enabled", true/g' user.js
+echo "user_pref("mailnews.auto_config.fetchFromISP.sslOnly", true);" >> user.js
+echo "user_pref("mailnews.auto_config.fetchFromExchange.sslOnly", true);" >> user.js
+echo "user_pref("mailnews.auto_config.guess.sslOnly", true)" >> user.js       # sets fetch and guesses to SSL only
+
+sed -i 's/showCondensedAddresses", false/showCondensedAddresses", true/g' user.js #when contact is in your address book
+sed -i 's/mailnews.headers.showUserAgent", false/mailnews.headers.showUserAgent", true/g' user.js
+
+sed -i 's/mail.collect_email_address_outgoing", false/mail.collect_email_address_outgoing", true/g' user.js #useful
+sed -i 's/user_pref("mail.sanitize_date_header", true/user_pref("mail.sanitize_date_header", false/g' user.js #assuming you write with people close to you
+sed -i 's/user_pref("mail.html_compose", false/user_pref("mail.html_compose", true/g' user.js #nonsense. Only used if the user actually writes in HTML, and breaks things in that case
+sed -i 's/mail.identity.default.compose_html", false/mail.identity.default.compose_html", true/g' user.js
+sed -i 's/mail.default_send_format", 1/mail.default_send_format", 0/g' user.js # send HTML if used, otherwise send plain text. nothing wrong here
+sed -i 's/mailnews.display.disallow_mime_handlers", 3)/mailnews.display.disallow_mime_handlers", 0)/g' user.js #display HTML, inline images etc, when chosen
+
+sed -i 's/permissions.default.image", 2/permissions.default.image", 3/g' user.js
+sed -i 's/calendar.extract.service.enabled", false/calendar.extract.service.enabled", true/g' user.js #useful feature!
+
+# make sure sanitized HTML is used
+sed -i 's/mailnews.display.html_as", 0/mailnews.display.html_as", 3/g' user.js
+sed -i 's/mailnews.display.html_as", 1/mailnews.display.html_as", 3/g' user.js
+
+echo "done."
+echo
+
+####### Deactivate unnecessary lines
+# This works by searching for a line (needs to start with the start, here "user_pref") and placing "//" in front to disable it
+
+echo "Deactivating unnecessary lines, that should not be forced..."
+
+sed -i '/user_pref("spellchecker.dictionary", "en-US");/s/^/\/\//' user.js
+sed -i '/user_pref("intl.accept_languages", "en-US, en");/s/^/\/\//' user.js
+sed -i '/user_pref("browser.newtabpage.enabled", false/s/^/\/\//' user.js
+sed -i '/user_pref("breakpad.reportURL", ""/s/^/\/\//' user.js
+sed -i '/user_pref("media.memory_cache_max_size/s/^/\/\//' user.js # no reason in TB
+sed -i '/user_pref("browser.cache.disk.enable", false);/s/^/\/\//' user.js
+sed -i '/user_pref("browser.sessionstore.interval/s/^/\/\//' user.js
+sed -i '/user_pref("privacy.clearOnShutdown.cache", true/s/^/\/\//' user.js
+sed -i '/user_pref("privacy.clearOnShutdown.downloads", true/s/^/\/\//' user.js
+sed -i '/user_pref("privacy.clearOnShutdown.sessions", true/s/^/\/\//' user.js
+sed -i '/user_pref("privacy.window.maxInnerWidth/s/^/\/\//' user.js
+sed -i '/user_pref("privacy.window.maxInnerHeight/s/^/\/\//' user.js
+sed -i '/user_pref("browser.cache.memory.enable", false/s/^/\/\//' user.js
+sed -i '/user_pref("browser.cache.memory.capacity", 0/s/^/\/\//' user.js
+sed -i '/permissions.memory_only", true/s/^/\/\//' user.js
+sed -i '/user_pref("browser.cache.offline.enable", false/s/^/\/\//' user.js
+sed -i '/user_pref("mailnews.auto_config.addons_url",""/s/^/\/\//' user.js
+sed -i '/user_pref("mailnews.display.original_date", false/s/^/\/\//' user.js
+sed -i '/user_pref("mailnews.display.date_senders_timezone", false/s/^/\/\//' user.js
+sed -i '/user_pref("mailnews.reply_header_type", 1/s/^/\/\//' user.js
+sed -i '/user_pref("mailnews.reply_header_authorwrotesingle/s/^/\/\//' user.js
+sed -i '/user_pref("mail.SpellCheckBeforeSend"/s/^/\/\//' user.js #useful but should not be forced
+sed -i '/user_pref("calendar.timezone.local", "UTC"/s/^/\/\//' user.js #this could mess things up sooo much
+sed -i '/user_pref("dom.caches.enabled", false/s/^/\/\//' user.js # probably not used
+sed -i '/user_pref("extensions.enabledScopes", 5/s/^/\/\//' user.js # not used
+sed -i '/user_pref("extensions.autoDisableScopes", 15/s/^/\/\//' user.js # not used
+
+echo "done."
+cp user.js ~/THUNDERBIRD-HARDENING-user.js && echo "Backed up the configs to your home folder" || echo "Failed to backup your user.js."
+
+cat <<EOF
+
+Now your hardened user.js is stored in your Thunderbird profile folder.
+Make sure to rerun this script to keep up to date.
+To make sure this works, it is linked to your ~/.config/autostart directory and launches on every user login.
+
+Have fun with your hardened but usable Thunderbird!
+EOF
