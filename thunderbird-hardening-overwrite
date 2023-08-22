@@ -12,7 +12,7 @@ cat <<EOF
 EOF
 
 # Set the name of your Thunderbird profile folder here:
-Profilename="t80k3jk0.Neues Profil"
+Profilename=""
 
 [ ! -f ~/.config/autostart/thunderbird-hardening-overwrite-launch ] && cat > ~/.config/autostart/thunderbird-hardening-overwrite-launch <<EOF && echo "created autostart script"
 #!/bin/bash
